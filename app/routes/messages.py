@@ -49,7 +49,8 @@ async def get_conversations(user=Depends(get_current_user)):
         context_image = None
 
         if room_id.startswith("venue:"):
-            venue_id = room_id.replace("venue:", "")
+            parts = room_id.split(":")
+            venue_id = parts[1] if len(parts) > 1 else ""
             try:
                 venue = await db.venues.find_one(
                     {"_id": ObjectId(venue_id)},
