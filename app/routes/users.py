@@ -1,3 +1,4 @@
+from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime
 from app.core.config import get_db
@@ -28,6 +29,17 @@ async def get_profile(user=Depends(get_current_user)):
         }
     }
 
+@router.get("/{user_id}/phone")
+async def get_user_phone(user_id: str, user=Depends(get_current_user)):
+    db = get_db()
+    target = await db.users.find_one(
+        {"_id": ObjectId(user_id)},
+        {"phone": 1}
+    )
+    return {"phone": target.get("phone", "") if target else ""}
+
+
+@router.put("/me")
 
 @router.put("/me")
 async def update_profile(body: UpdateProfileRequest, user=Depends(get_current_user)):
