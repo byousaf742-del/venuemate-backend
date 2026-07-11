@@ -191,9 +191,15 @@ async def update_venue(venue_id: str, body: dict, user=Depends(require_role("own
 
     if "location" in body:
         existing_location = venue.get("location", {})
+        new_lat = body["location"].get("latitude")
+        new_lng = body["location"].get("longitude")
+        if new_lat is not None and new_lng is not None:
+            new_coords = [new_lng, new_lat]
+        else:
+            new_coords = existing_location.get("coordinates", [74.1945, 32.1877])
         body["location"] = {
             "type": "Point",
-            "coordinates": existing_location.get("coordinates", [74.1945, 32.1877]),
+            "coordinates": new_coords,
             "address": body["location"].get("address", existing_location.get("address", "")),
             "city": body["location"].get("city", existing_location.get("city", "Gujranwala")),
             "area": body["location"].get("area", existing_location.get("area", "")),
