@@ -141,6 +141,40 @@ async def owner_venues(user=Depends(require_role("owner"))):
     return {"venues": venues}
 
 
+@router.get("/favourites")
+async def get_favourites(user=Depends(get_current_user)):
+    db = get_db()
+    user_doc = await db.users.find_one({"_id": user["_id"]}, {"saved_venues": 1})
+    saved_ids = user_doc.get("saved_venues", []) if user_doc else []
+    venues = []
+    async for v in db.venues.find({"_id": {"$in": saved_ids}, "is_active": True}):
+        v["id"] = str(v.pop("_id"))
+        v["owner_id"] = str(v.get("owner_id", ""))
+        venues.append(v)
+    return {"venues": venues}
+
+
+@router.post("/{venue_id}/favourite")
+async def toggle_favourite(venue_id: str, user=Depends(get_current_user)):
+    db = get_db()
+    venue_oid = ObjectId(venue_id)
+    existing = await db.users.find_one(
+        {"_id": user["_id"], "saved_venues": venue_oid}
+    )
+    if existing:
+        await db.users.update_one(
+            {"_id": user["_id"]},
+            {"$pull": {"saved_venues": venue_oid}}
+        )
+        return {"saved": False}
+    else:
+        await db.users.update_one(
+            {"_id": user["_id"]},
+            {"$addToSet": {"saved_venues": venue_oid}}
+        )
+        return {"saved": True}
+
+
 @router.get("/{venue_id}")
 async def venue_detail(venue_id: str):
     db = get_db()
