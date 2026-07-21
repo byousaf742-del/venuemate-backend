@@ -1,9 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from datetime import datetime
 from bson import ObjectId
+import asyncio
+import io
 from app.core.config import get_db
 from app.core.security import get_current_user, require_role
 from app.core.utils import push_notification, make_token
+from app.core.booking_token_pdf import generate_booking_token_pdf
 from app.models.schemas import CreateBookingRequest, BookingActionRequest, PaymentRequest
 
 router = APIRouter(prefix="/api/bookings", tags=["Bookings"])
@@ -192,3 +196,49 @@ async def pay_booking(
         "booking", booking_id
     )
     return {"success": True, "confirmation_token": token}
+
+
+@router.get("/{booking_id}/token-pdf")
+async def download_booking_token(
+    booking_id: str,
+    user=Depends(get_current_user)
+):
+    db = get_db()
+
+    booking = await db.bookings.find_one({"_id": ObjectId(booking_id)})
+    if not booking:
+        raise HTTPException(404, "Booking not found")
+
+    if str(booking["user_id"]) != str(user["_id"]):
+        raise HTTPException(403, "Access denied")
+
+    if booking.get("status") != "confirmed":
+        raise HTTPException(400, "Token only available for confirmed bookings")
+
+    venue_doc, customer_doc, owner_doc = await asyncio.gather(
+        db.venues.find_one({"_id": booking["venue_id"]}),
+        db.users.find_one({"_id": booking["user_id"]}),
+        db.users.find_one({"_id": booking["owner_id"]}),
+    )
+
+    if not venue_doc or not customer_doc or not owner_doc:
+        raise HTTPException(500, "Could not load booking details")
+
+    booking["id"]   = str(booking.pop("_id"))
+    venue_doc["id"] = str(venue_doc.pop("_id"))
+
+    pdf_bytes = generate_booking_token_pdf(
+        booking=booking,
+        venue=venue_doc,
+        customer=customer_doc,
+        owner=owner_doc,
+    )
+
+    token_num = booking.get("confirmation_token", booking_id)
+    filename  = f"VenueMate_Token_{token_num}.pdf"
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
