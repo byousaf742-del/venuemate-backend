@@ -49,7 +49,6 @@ async def push_notification(
     if not user_id or len(str(user_id)) != 24:
         return
 
-    # Save to MongoDB always
     await db.notifications.insert_one({
         "user_id": ObjectId(user_id),
         "type": type_,
@@ -61,7 +60,6 @@ async def push_notification(
         "created_at": datetime.utcnow(),
     })
 
-    # Send FCM push notification
     try:
         _init_firebase()
         user = await db.users.find_one(
