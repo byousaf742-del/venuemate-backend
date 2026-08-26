@@ -35,6 +35,7 @@ async def create_booking(body: CreateBookingRequest, user=Depends(get_current_us
         "venue_name": venue["name"],
         "customer_name": user["name"],
         "customer_phone": user.get("phone", ""),
+        "customer_photo": user.get("profile_photo", ""),
         "venue_image": venue["media"][0]["url"] if venue.get("media") else None,
         "event_date": body.event_date,
         "event_time": body.event_time,
@@ -106,6 +107,7 @@ async def owner_bookings(user=Depends(require_role("owner"))):
             "notes": b.get("notes"),
             "customer_name": b.get("customer_name", "Customer"),
             "customer_phone": b.get("customer_phone", ""),
+            "customer_photo": b.get("customer_photo", ""),
             "created_at": str(b.get("created_at", "")),
         })
     return {"bookings": bookings}
