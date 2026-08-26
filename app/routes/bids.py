@@ -128,12 +128,13 @@ async def owner_received_bids(user=Depends(require_role("owner"))):
             str(q.get("owner_id")) == str(user["_id"])
             for q in b.get("quotations", [])
         )
+        customer = await db.users.find_one({"_id": ObjectId(str(b["user_id"]))})
         bids.append({
             "id": str(b["_id"]),
             "user_id": str(b["user_id"]),
             "customer_name": b.get("user_name", "Customer"),
             "customer_phone": b.get("customer_phone", ""),
-            "customer_photo": b.get("customer_photo", ""),
+            "customer_photo": customer.get("profile_photo", "") if customer else "",
             "event_type": b.get("event_type", ""),
             "event_date": b.get("event_date", ""),
             "budget": b.get("budget", 0),
