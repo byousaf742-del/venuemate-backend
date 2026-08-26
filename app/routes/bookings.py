@@ -89,6 +89,7 @@ async def owner_bookings(user=Depends(require_role("owner"))):
     )
     bookings = []
     async for b in cursor:
+        customer = await db.users.find_one({"_id": b["user_id"]})
         bookings.append({
             "id": str(b["_id"]),
             "venue_id": str(b["venue_id"]),
@@ -107,7 +108,7 @@ async def owner_bookings(user=Depends(require_role("owner"))):
             "notes": b.get("notes"),
             "customer_name": b.get("customer_name", "Customer"),
             "customer_phone": b.get("customer_phone", ""),
-            "customer_photo": b.get("customer_photo", ""),
+            "customer_photo": customer.get("profile_photo", "") if customer else "",
             "created_at": str(b.get("created_at", "")),
         })
     return {"bookings": bookings}
