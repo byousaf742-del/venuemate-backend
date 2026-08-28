@@ -162,7 +162,8 @@ def generate_booking_token_pdf(booking: dict, venue: dict, customer: dict, owner
         _row("Address",      address),
         _row("Min Capacity", str(cap.get("min", "—"))),
         _row("Max Capacity", str(cap.get("max", "—"))),
-        _row("Base Price",   f"PKR {pricing.get('base_per_day', 0):,} / day"),
+        _row("Price Per Guest", f"PKR {pricing.get('per_guest', 0):,} / guest") if pricing.get('per_guest', 0) > 0 else _row("Base Price", f"PKR {pricing.get('base_per_day', 0):,} / day"),
+        _row("Guest Count",  str(booking.get("guest_count", "—"))),
     ])
 
     # ── Customer details ──────────────────────────────────────────────────────

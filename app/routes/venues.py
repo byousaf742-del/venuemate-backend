@@ -133,8 +133,8 @@ async def owner_venues(user=Depends(require_role("owner"))):
     venues = []
     async for v in cursor:
         total_bookings = await db.bookings.count_documents({"venue_id": v["_id"]})
-        pending_requests = await db.bids.count_documents(
-            {"venue_ids": v["_id"], "status": "open"})
+        pending_requests = await db.bookings.count_documents(
+            {"venue_id": v["_id"], "status": "pending"})
         v["total_bookings"] = total_bookings
         v["pending_requests"] = pending_requests
         venues.append(_serialize_venue(v))
