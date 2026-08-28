@@ -73,6 +73,7 @@ class CreateBidRequest(BaseModel):
     message: Optional[str] = None
 
 class SendQuotationRequest(BaseModel):
+    venue_id: Optional[str] = None
     amount: int
     discount_percent: float = 0
     message: str
