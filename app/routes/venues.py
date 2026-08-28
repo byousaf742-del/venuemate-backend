@@ -308,3 +308,28 @@ async def owner_reviews(user=Depends(require_role("owner"))):
             "created_at": str(r.get("created_at", "")),
         })
     return {"reviews": reviews}
+
+
+@router.delete("/{venue_id}")
+async def delete_venue(venue_id: str, user=Depends(require_role("owner"))):
+    db = get_db()
+    venue = await db.venues.find_one({"_id": ObjectId(venue_id)})
+    if not venue or str(venue["owner_id"]) != str(user["_id"]):
+        raise HTTPException(403, "Not your venue")
+    
+    venue_oid = ObjectId(venue_id)
+    
+    await db.venues.delete_one({"_id": venue_oid})
+    await db.bookings.delete_many({"venue_id": venue_oid})
+    await db.bids.update_many(
+        {"venue_ids": venue_oid},
+        {"$pull": {"venue_ids": venue_oid}}
+    )
+    await db.reviews.delete_many({"venue_id": venue_oid})
+    await db.users.update_many(
+        {"saved_venues": venue_oid},
+        {"$pull": {"saved_venues": venue_oid}}
+    )
+    await db.messages.delete_many({"room_id": {"$regex": f"venue:{venue_id}"}})
+    
+    return {"success": True, "message": "Venue deleted successfully"}
