@@ -43,7 +43,7 @@ async def create_booking(body: CreateBookingRequest, user=Depends(get_current_us
         "guest_count": body.guest_count,
         "status": "requested",
         "confirmation_token": None,
-        "total_amount": venue["pricing"].get("per_guest", 0) * body.guest_count if venue["pricing"].get("per_guest", 0) > 0 else venue["pricing"]["base_per_day"],
+        "total_amount": venue["pricing"]["base_per_day"],
         "advance_paid": 0,
         "services_requested": body.services_requested,
         "notes": body.notes,

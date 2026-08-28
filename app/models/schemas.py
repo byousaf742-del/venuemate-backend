@@ -25,7 +25,6 @@ class VenueLocation(BaseModel):
 
 class VenuePricing(BaseModel):
     base_per_day: int
-    per_guest: int = 0
     advance_percent: int = 30
     peak_multiplier: float = 1.5
 
