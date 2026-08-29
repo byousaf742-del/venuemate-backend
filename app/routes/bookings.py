@@ -13,17 +13,22 @@ from app.models.schemas import CreateBookingRequest, BookingActionRequest, Payme
 router = APIRouter(prefix="/api/bookings", tags=["Bookings"])
 
 
-def _compute_tier_price(base_price: int, max_capacity: int, guest_count: int, range_size: int = 200):
+def _compute_tier_price(base_price: int, max_capacity: int, guest_count: int, min_capacity: int = 1, range_size: int = 200):
     """Mirrors the Flutter PriceTierSelector's generatePriceTiers() logic:
-    200-guest bands, multiplier starts at 1x and increases by 1.5 per tier
-    (1, 2.5, 4, 5.5, ...) up to the venue's max capacity. Returns
-    (tier_name, price) for the band guest_count falls into, or (None, base_price)
-    if capacity data is missing/invalid or guest_count exceeds max_capacity.
+    tiers start at the venue's min capacity (base price, 1x) in 200-guest
+    bands, multiplier increasing by 1.5 per tier (1, 2.5, 4, 5.5, ...) up
+    to the venue's max capacity. Returns (tier_name, price) for the band
+    guest_count falls into, or (None, base_price) if capacity data is
+    missing/invalid or guest_count falls outside [min_capacity, max_capacity].
     """
     if not base_price or not max_capacity or guest_count <= 0:
         return None, base_price or 0
 
-    start = 1
+    min_capacity = min_capacity if min_capacity and min_capacity >= 1 else 1
+    if min_capacity > max_capacity:
+        return None, base_price
+
+    start = min_capacity
     tier_index = 0
     while start <= max_capacity:
         end = min(start + range_size - 1, max_capacity)
@@ -33,7 +38,7 @@ def _compute_tier_price(base_price: int, max_capacity: int, guest_count: int, ra
         start = end + 1
         tier_index += 1
 
-    # guest_count beyond max_capacity: fall back to the last tier's price
+    # guest_count outside [min_capacity, max_capacity]: fall back to base price
     return None, base_price
 
 
@@ -55,6 +60,7 @@ async def create_booking(body: CreateBookingRequest, user=Depends(get_current_us
     price_tier, venue_price = _compute_tier_price(
         base_price=venue["pricing"]["base_per_day"],
         max_capacity=venue.get("capacity", {}).get("max", 0),
+        min_capacity=venue.get("capacity", {}).get("min", 1),
         guest_count=body.guest_count,
     )
 
