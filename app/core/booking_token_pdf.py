@@ -208,6 +208,59 @@ def generate_booking_token_pdf(booking: dict, venue: dict, customer: dict, owner
         story.append(svc_tbl)
         story.append(Spacer(1, 4 * mm))
 
+    # ── Pricing breakdown ─────────────────────────────────────────────────────
+    story.append(Paragraph("PRICING BREAKDOWN", S_SECTION))
+    story.append(Spacer(1, 1 * mm))
+
+    price_tier   = booking.get("price_tier")          # e.g. "Tier 2"
+    venue_price  = booking.get("venue_price", 0)       # e.g. 240000
+    menu_sel     = booking.get("menu_selected")        # 'standard' | 'premium' | None
+    menu_pph     = booking.get("menu_price_per_head", 0)
+    menu_total   = booking.get("menu_total", 0)
+    guest_count  = booking.get("guest_count", 0)
+
+    pricing_rows = []
+
+    # Venue price row — show tier label if available
+    tier_label = f"Venue Price ({price_tier})" if price_tier else "Venue Price"
+    pricing_rows.append([
+        Paragraph(tier_label, S_LABEL),
+        Paragraph(f"PKR {venue_price:,}", S_VALUE),
+    ])
+
+    # Menu row — only if a menu was selected
+    if menu_sel and menu_pph and guest_count:
+        menu_name  = "Standard Menu" if menu_sel == "standard" else "Premium Menu"
+        per_head_label = f"{menu_name}  (PKR {menu_pph:,}/head × {guest_count} guests)"
+        pricing_rows.append([
+            Paragraph(per_head_label, S_LABEL),
+            Paragraph(f"PKR {menu_total:,}", S_VALUE),
+        ])
+
+    # Subtotal divider row
+    pricing_rows.append([
+        Paragraph("Subtotal", S_BAL_LABEL),
+        Paragraph(f"PKR {venue_price + menu_total:,}", S_BAL_VALUE),
+    ])
+
+    pricing_tbl = Table(pricing_rows, colWidths=[W * 0.62, W * 0.38])
+    n = len(pricing_rows)
+    pricing_tbl.setStyle(TableStyle([
+        ("ROWBACKGROUNDS",  (0, 0), (-1, n - 2), [SURFACE, BG]),
+        ("BACKGROUND",      (0, n - 1), (-1, n - 1), PRIMARY_LIGHT),
+        ("TOPPADDING",      (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING",   (0, 0), (-1, -1), 6),
+        ("LEFTPADDING",     (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING",    (0, 0), (-1, -1), 10),
+        ("ALIGN",           (1, 0), (1, -1), "RIGHT"),
+        ("BOX",             (0, 0), (-1, -1), 0.8, OUTLINE),
+        ("INNERGRID",       (0, 0), (-1, -1), 0.5, OUTLINE),
+        ("LINEABOVE",       (0, n - 1), (-1, n - 1), 1.5, PRIMARY),
+        ("ROUNDEDCORNERS",  [6]),
+    ]))
+    story.append(pricing_tbl)
+    story.append(Spacer(1, 4 * mm))
+
     # ── Payment summary ───────────────────────────────────────────────────────
     total   = booking.get("total_amount", 0)
     advance = booking.get("advance_paid", 0)
@@ -216,16 +269,18 @@ def generate_booking_token_pdf(booking: dict, venue: dict, customer: dict, owner
     story.append(Paragraph("PAYMENT SUMMARY", S_SECTION))
     story.append(Spacer(1, 1 * mm))
     pay_tbl = Table([
-        [Paragraph("Total Amount", S_LABEL),  Paragraph(f"PKR {total:,}",   S_VALUE)],
-        [Paragraph("Advance Paid", S_LABEL),  Paragraph(f"PKR {advance:,}", S_VALUE)],
+        [Paragraph("Total Amount", S_LABEL),     Paragraph(f"PKR {total:,}",   S_VALUE)],
+        [Paragraph("Advance Paid", S_LABEL),     Paragraph(f"PKR {advance:,}", S_VALUE)],
         [Paragraph("Balance Due",  S_BAL_LABEL), Paragraph(f"PKR {balance:,}", S_BAL_VALUE)],
-    ], colWidths=[W * 0.5, W * 0.5])
+    ], colWidths=[W * 0.62, W * 0.38])
     pay_tbl.setStyle(TableStyle([
         ("ROWBACKGROUNDS", (0, 0), (-1, 1), [SURFACE, BG]),
         ("BACKGROUND",    (0, 2), (-1, 2), PRIMARY_LIGHT),
         ("TOPPADDING",    (0, 0), (-1, -1), 7),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
         ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
+        ("ALIGN",         (1, 0), (1, -1), "RIGHT"),
         ("BOX",           (0, 0), (-1, -1), 0.8, OUTLINE),
         ("INNERGRID",     (0, 0), (-1, -1), 0.5, OUTLINE),
         ("LINEABOVE",     (0, 2), (-1, 2),  1.5, PRIMARY),
