@@ -13,6 +13,30 @@ from app.models.schemas import CreateBookingRequest, BookingActionRequest, Payme
 router = APIRouter(prefix="/api/bookings", tags=["Bookings"])
 
 
+def _compute_tier_price(base_price: int, max_capacity: int, guest_count: int, range_size: int = 200):
+    """Mirrors the Flutter PriceTierSelector's generatePriceTiers() logic:
+    200-guest bands, multiplier starts at 1x and increases by 1.5 per tier
+    (1, 2.5, 4, 5.5, ...) up to the venue's max capacity. Returns
+    (tier_name, price) for the band guest_count falls into, or (None, base_price)
+    if capacity data is missing/invalid or guest_count exceeds max_capacity.
+    """
+    if not base_price or not max_capacity or guest_count <= 0:
+        return None, base_price or 0
+
+    start = 1
+    tier_index = 0
+    while start <= max_capacity:
+        end = min(start + range_size - 1, max_capacity)
+        if start <= guest_count <= end:
+            multiplier = 1 + (1.5 * tier_index)
+            return f"Tier {tier_index + 1}", round(base_price * multiplier)
+        start = end + 1
+        tier_index += 1
+
+    # guest_count beyond max_capacity: fall back to the last tier's price
+    return None, base_price
+
+
 @router.post("")
 async def create_booking(body: CreateBookingRequest, user=Depends(get_current_user)):
     db = get_db()
@@ -27,6 +51,21 @@ async def create_booking(body: CreateBookingRequest, user=Depends(get_current_us
     })
     if conflict:
         raise HTTPException(400, "Venue is already booked for that date")
+
+    price_tier, venue_price = _compute_tier_price(
+        base_price=venue["pricing"]["base_per_day"],
+        max_capacity=venue.get("capacity", {}).get("max", 0),
+        guest_count=body.guest_count,
+    )
+
+    menu_price_per_head = 0
+    if body.menu_selected == "standard":
+        menu_price_per_head = venue["pricing"].get("standard_menu_per_head", 0)
+    elif body.menu_selected == "premium":
+        menu_price_per_head = venue["pricing"].get("premium_menu_per_head", 0)
+    menu_total = menu_price_per_head * body.guest_count if menu_price_per_head else 0
+
+    total_amount = venue_price + menu_total
 
     result = await db.bookings.insert_one({
         "venue_id": ObjectId(body.venue_id),
@@ -43,7 +82,12 @@ async def create_booking(body: CreateBookingRequest, user=Depends(get_current_us
         "guest_count": body.guest_count,
         "status": "requested",
         "confirmation_token": None,
-        "total_amount": venue["pricing"]["base_per_day"],
+        "price_tier": price_tier,
+        "venue_price": venue_price,
+        "menu_selected": body.menu_selected,
+        "menu_price_per_head": menu_price_per_head,
+        "menu_total": menu_total,
+        "total_amount": total_amount,
         "advance_paid": 0,
         "services_requested": body.services_requested,
         "notes": body.notes,
@@ -104,6 +148,11 @@ async def owner_bookings(user=Depends(require_role("owner"))):
             "status": b.get("status", ""),
             "confirmation_token": b.get("confirmation_token"),
             "total_amount": b.get("total_amount", 0),
+            "price_tier": b.get("price_tier"),
+            "venue_price": b.get("venue_price", 0),
+            "menu_selected": b.get("menu_selected"),
+            "menu_price_per_head": b.get("menu_price_per_head", 0),
+            "menu_total": b.get("menu_total", 0),
             "advance_paid": b.get("advance_paid", 0),
             "notes": b.get("notes"),
             "customer_name": b.get("customer_name", "Customer"),

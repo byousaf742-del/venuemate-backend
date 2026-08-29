@@ -27,6 +27,8 @@ class VenuePricing(BaseModel):
     base_per_day: int
     advance_percent: int = 30
     peak_multiplier: float = 1.5
+    standard_menu_per_head: int = 0
+    premium_menu_per_head: int = 0
 
 class VenueCapacity(BaseModel):
     min: int
@@ -51,6 +53,7 @@ class CreateBookingRequest(BaseModel):
     services_requested: List[str] = []
     notes: Optional[str] = None
     bid_id: Optional[str] = None
+    menu_selected: Optional[str] = None   # "standard" | "premium" | None
 
 class BookingActionRequest(BaseModel):
     action: str                     
